@@ -1,0 +1,77 @@
+a {
+  color: #15c;
+  font-weight: 300;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+body {
+  font-family: sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  margin: 0;
+  padding: 0.5em;
+  word-break: break-word;
+}
+
+button {
+  background-color: #d84a38;
+  border: none;
+  border-radius: 2px;
+  color: white;
+  font-family: sans-serif;
+  font-size: 0.8em;
+  margin: 0 0 1em 0;
+  padding: 0.6em;
+}
+
+button:active {
+  background-color: #cf402f;
+}
+
+button:hover {
+  background-color: #cf402f;
+}
+
+button[disabled] {
+  color: #ccc;
+}
+
+button[disabled]:hover {
+  background-color: #d84a38;
+}
+
+h1 {
+  border-bottom: 1px solid #ccc;
+  font-family: sans-serif;
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 0.8em 0;
+  padding: 0 0 0.2em 0;
+}
+
+html {
+  /* avoid annoying page width change
+when moving from the home page */
+  overflow-y: scroll;
+}
+
+h1 span {
+  white-space: nowrap;
+}
+
+video {
+  background: #222;
+  margin: 0 0 20px 0;
+  width: 100%;
+}
+
+canvas {
+  background-color: #ccc;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 0 20px 0;
+}
