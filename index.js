@@ -69,55 +69,124 @@ function stopCamera() {
 }
 
 function processImage() {
-
+  // grab image from canvas
   let src = cv.imread('canvas');
-  let src_scaled = new cv.Mat();
   
+  // resize image
+  let src_scaled = new cv.Mat();
   let src_size = src.size();
   let ratio = src_size.height / src_size.width;
   let dsize = new cv.Size(scaledImageWidth, scaledImageWidth * ratio);
-  // You can try more different parameters
   cv.resize(src, src_scaled, dsize, 0, 0, cv.INTER_AREA);
-
   let toDraw = src_scaled;
 
-  let s = new cv.Mat();
-  cv.cvtColor(src_scaled, s, cv.COLOR_RGB2GRAY)
+  // convert to grayscale
+  let gray = new cv.Mat();
+  cv.cvtColor(src_scaled, gray, cv.COLOR_RGB2GRAY)
 
-  let threshed = new cv.Mat();
-  cv.threshold(s, threshed, 50, 255, cv.THRESH_BINARY_INV);
-  let contours = new cv.MatVector();
-  let hierarchy = new cv.Mat();
-  cv.findContours(threshed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+  // filter
+  cv.GaussianBlur(gray, gray, new cv.Size(9, 9), 0, 0, cv.BORDER_DEFAULT);
+
+  // apply unsharp masking to sharpen edges
+  // let gray_blur = new cv.Mat();
+  // cv.GaussianBlur(gray, gray_blur, new cv.Size(19, 19), 0, 0, cv.BORDER_DEFAULT);
+  // cv.addWeighted(gray, 1.5, gray_blur, -0.5, 0, gray);
+
+  // adjust contrast
+  // cv.equalizeHist(gray, gray);
+  // let clahe = new cv.CLAHE(4, new cv.Size(32, 32));
+  // clahe.apply(gray, gray);
   
-  // only an array so I can sort it, but this could probably be better
+  // threshold grayscale image
+  let threshed = new cv.Mat();
+  cv.threshold(gray, threshed, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+
+  // extract contours from image
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat(); // DELETE if not used
+  cv.findContours(threshed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+  
+  // filter contours for largest one
   let countourArray = [];
+  let areaThresh = 100;
+  let bboxOffset = 20;
   for (let i=0; i < contours.size(); i++) {
     let contour = contours.get(i);
+
+    // display all contours
+    // let arclen = cv.arcLength(contour, true)
+    // let approx = new cv.Mat();
+    // cv.approxPolyDP(contour, approx, 0.02* arclen, true);
+    // let color = new cv.Scalar(255, 255, 255);
+    // let color2 = new cv.Scalar(255, 0, 0);
+    // let poly = new cv.MatVector();
+    // poly.push_back(contour);
+    // poly.push_back(approx);
+    // // cv.drawContours(toDraw, poly, 0, color, 1, cv.LINE_AA)
+    // cv.drawContours(toDraw, poly, 1, color2, 1, cv.LINE_AA)
+
+    // filter if contour touches edge of camera
+    let bb = new cv.boundingRect(contour);
+    let xMin = bboxOffset;
+    let yMin = bboxOffset;
+    let xMax = scaledImageWidth - 1 - bboxOffset;
+    let yMax = scaledImageWidth * ratio - 1 - bboxOffset;
+    if (bb.x <= xMin || 
+        bb.y <= yMin ||
+        bb.width >= xMax ||
+        bb.height >= yMax) { continue; }
+
+    // filter if contour is smaller than minimum area
+    let area = cv.contourArea(contour);
+    if (area < areaThresh) { continue; }
+
     countourArray = [contour];
   }
   countourArray = countourArray.sort((a, b) => cv.contourArea(a, false) - cv.contourArea(b, false))
-  let contour = countourArray[countourArray.length-1];
 
-  let arclen = cv.arcLength(contour, true)
-  let approx = new cv.Mat();
-  cv.approxPolyDP(contour, approx, 0.02* arclen, true)
-
-  let color = new cv.Scalar(255, 255, 255);
-  let color2 = new cv.Scalar(255, 0, 0);
+  // execute only if at least one valid contour is found
+  if (countourArray.length > 0)
+  {
+    let contour = countourArray[countourArray.length-1];
   
-  //toDraw = hsv;
-  let poly = new cv.MatVector();
-  poly.push_back(contour);
-  poly.push_back(approx);
-  //cv.drawContours(toDraw, poly, 0, color, 1, cv.LINE_AA)
-  cv.drawContours(toDraw, poly, 1, color2, 1, cv.LINE_AA)
+    // simplify contour
+    let arclen = cv.arcLength(contour, true)
+    let approx = new cv.Mat();
+    cv.approxPolyDP(contour, approx, 0.02* arclen, true);
+  
+    // draw approximated contour
+    // let color = new cv.Scalar(255, 255, 255);
+    // let color2 = new cv.Scalar(255, 0, 0);
+    // let poly = new cv.MatVector();
+    // poly.push_back(contour);
+    // poly.push_back(approx);
+    //cv.drawContours(toDraw, poly, 0, color, 1, cv.LINE_AA)
+    // cv.drawContours(toDraw, poly, 1, color2, 1, cv.LINE_AA)
+  
+    // draw bounding rectangle
+    let rotatedRect = cv.minAreaRect(approx);
+    let vertices = cv.RotatedRect.points(rotatedRect);
+    let rectangleColor = new cv.Scalar(255, 0, 0);
+    for (let i = 0; i < 4; i++) {
+      cv.line(toDraw, vertices[i], vertices[(i + 1) % 4], rectangleColor, 2, cv.LINE_AA, 0);
+    }
+  }
 
+  // draw offset rectangle
+  let point1 = new cv.Point(bboxOffset, bboxOffset);
+  let point2 = new cv.Point(scaledImageWidth - 1 - bboxOffset, 
+    scaledImageWidth * ratio - 1 - bboxOffset);
+  cv.rectangle(toDraw, point1, point2, new cv.Scalar(255, 255, 255), 2, cv.LINE_AA, 0);
+
+  // draw to canvas
   cv.imshow('canvas', toDraw);
-  //hsv.delete();
+  // cv.imshow('canvas', threshed);
+  // cv.imshow('canvas', gray);
+
+  // wipe
   src.delete();
   src_scaled.delete();
-  s.delete();
+  gray.delete();
   threshed.delete();
   contours.delete();
   hierarchy.delete();

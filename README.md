@@ -14,6 +14,6 @@ Take note of the https://<unique>.ngrok.io url
 
 Fire up the server locally, hot-reloading enabled
 
-```line-server```
+```live-server```
 
 Now browse to the https ngrok address
